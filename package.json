@@ -1,5 +1,19 @@
 {
   "name": "pastens",
+  "description": "Explore the ownership history of Ethereum Name Service (ENS) domains",
+  "author": "pastens",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FranzQ/pastens.git"
+  },
+  "homepage": "https://pastens.com",
+  "keywords": [
+    "ENS",
+    "history",
+    "ownership",
+    "blockchain"
+  ],
   "version": "0.1.0",
   "private": true,
   "scripts": {

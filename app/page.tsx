@@ -14,6 +14,7 @@ export default function Home() {
     name: string;
     owners: ENSOwner[];
     currentOwner?: ENSOwner;
+    expiryDate?: string;
   } | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -218,6 +219,7 @@ export default function Home() {
                   ensName={searchResults.name}
                   owners={searchResults.owners}
                   currentOwner={searchResults.currentOwner}
+                  expiryDate={searchResults.expiryDate}
                 />
               </>
             ) : (

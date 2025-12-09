@@ -126,14 +126,54 @@ export async function GET() {
       }
     }
 
-    // Group transfers by domain name and count
-    const domainCounts = new Map<string, number>();
+    // Group transfers by domain and count actual ownership changes
+    // Similar to how the main API processes transfers - count unique owner transitions
+    const domainTransfers = new Map<string, Transfer[]>();
 
+    // First, group transfers by domain
     for (const transfer of allTransfers) {
       if (transfer.domain && transfer.domain.name) {
         const domainName = transfer.domain.name.toLowerCase();
-        const currentCount = domainCounts.get(domainName) || 0;
-        domainCounts.set(domainName, currentCount + 1);
+        if (!domainTransfers.has(domainName)) {
+          domainTransfers.set(domainName, []);
+        }
+        domainTransfers.get(domainName)!.push(transfer);
+      }
+    }
+
+    // Count actual ownership changes per domain
+    // Count transitions between different owners (not the initial owner)
+    const domainCounts = new Map<string, number>();
+
+    for (const [domainName, transfers] of domainTransfers.entries()) {
+      // Sort transfers by block number
+      const sortedTransfers = [...transfers].sort((a, b) => 
+        Number(a.blockNumber) - Number(b.blockNumber)
+      );
+
+      // Count ownership changes (transitions between different owners)
+      let ownershipChangeCount = 0;
+      let previousOwner: string | null = null;
+
+      for (const transfer of sortedTransfers) {
+        const currentOwner = transfer.owner.id.toLowerCase();
+        
+        // Skip if same owner as previous (consolidate consecutive ownership)
+        if (previousOwner !== null && currentOwner === previousOwner) {
+          continue;
+        }
+
+        // If we have a previous owner and it's different, count as ownership change
+        if (previousOwner !== null && currentOwner !== previousOwner) {
+          ownershipChangeCount++;
+        }
+
+        previousOwner = currentOwner;
+      }
+
+      // Only count if there were actual ownership changes
+      if (ownershipChangeCount > 0) {
+        domainCounts.set(domainName, ownershipChangeCount);
       }
     }
 

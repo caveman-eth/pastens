@@ -18,6 +18,7 @@ interface ENSHistoryProps {
   ensName: string;
   owners: ENSOwner[];
   currentOwner?: ENSOwner;
+  expiryDate?: string;
 }
 
 interface TimelinePeriod {
@@ -30,7 +31,7 @@ interface TimelinePeriod {
   duration: number; // in milliseconds
 }
 
-export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistoryProps) {
+export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }: ENSHistoryProps) {
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return "Unknown";
     
@@ -295,6 +296,14 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
     return duration;
   }, [timeline]);
 
+  // Get the earliest date (born on date)
+  const bornOnDate = useMemo(() => {
+    if (timeline.length === 0) return null;
+    return timeline.reduce((earliest, period) => {
+      return period.startDate < earliest ? period.startDate : earliest;
+    }, timeline[0].startDate);
+  }, [timeline]);
+
   // Calculate approximate age in years for display
   const approximateAge = useMemo(() => {
     if (!ensLifespan) return null;
@@ -367,6 +376,18 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
               <div className="flex items-center gap-2 text-xs md:text-sm relative" style={{ color: '#011A25', opacity: 0.8, zIndex: 3 }}>
                 <span className="font-medium">Lifespan: </span>
                 <span className="font-semibold break-words" style={{ color: '#011A25' }}>{formatDuration(ensLifespan)}</span>
+              </div>
+            )}
+            {bornOnDate && (
+              <div className="flex items-center gap-2 text-xs md:text-sm relative" style={{ color: '#011A25', opacity: 0.8, zIndex: 3 }}>
+                <span className="font-medium">Born on: </span>
+                <span className="font-semibold break-words" style={{ color: '#011A25' }}>{formatDate(bornOnDate)}</span>
+              </div>
+            )}
+            {expiryDate && (
+              <div className="flex items-center gap-2 text-xs md:text-sm relative" style={{ color: '#011A25', opacity: 0.8, zIndex: 3 }}>
+                <span className="font-medium">Tentative Expiry: </span>
+                <span className="font-semibold break-words" style={{ color: '#011A25' }}>{formatDate(expiryDate)}</span>
               </div>
             )}
           </div>
@@ -572,13 +593,6 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
               })}
             </div>
             
-            {/* Timeline span info */}
-            <div className="mt-10 text-sm" style={{ color: '#011A25', opacity: 0.8 }}>
-              <span>Timeline spans from </span>
-              <span className="font-bold" style={{ color: '#011A25' }}>{formatDate(timelineSpan.start)}</span>
-              <span> to </span>
-              <span className="font-bold" style={{ color: '#011A25' }}>{formatDate(timelineSpan.end)}</span>
-            </div>
           </div>
         </div>
       )}

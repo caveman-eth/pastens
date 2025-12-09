@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, TrendingUp, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface LeaderboardEntry {
@@ -128,7 +128,7 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
           ) : (
             <>
               <p className="text-sm mb-6" style={{ color: "#011A25", opacity: 0.7 }}>
-                Domains ranked by number of ownership changes
+                Domains ranked by number of ownership transitions (based on sampled transfers)
               </p>
 
               <div className="space-y-3">
@@ -161,15 +161,11 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
                             <h3 className="font-bold text-lg font-mono" style={{ color: "#011A25" }}>
                               {entry.name}
                             </h3>
-                            <ExternalLink
-                              size={16}
-                              className="text-gray-400 group-hover:text-blue-600 transition-colors"
-                            />
                           </div>
                           <div className="flex items-center gap-2 text-sm" style={{ color: "#011A25", opacity: 0.7 }}>
                             <TrendingUp size={14} />
                             <span className="font-semibold">
-                              {entry.transferCount} ownership change{entry.transferCount !== 1 ? "s" : ""}
+                              {entry.transferCount} ownership transition{entry.transferCount !== 1 ? "s" : ""}
                             </span>
                           </div>
                         </div>

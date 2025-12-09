@@ -6,6 +6,7 @@ export interface ENSOwner {
   transactionHash: string;
   isMarketplace?: boolean;
   marketplaceName?: string;
+  isBurned?: boolean;
 }
 
 export interface ENSDomain {

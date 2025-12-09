@@ -15,6 +15,11 @@ export default function Home() {
     owners: ENSOwner[];
     currentOwner?: ENSOwner;
     expiryDate?: string;
+    burnEvents?: Array<{
+      date: string;
+      transactionHash: string;
+      blockNumber: string;
+    }>;
   } | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -169,7 +174,7 @@ export default function Home() {
                   value={ensName}
                   onChange={(e) => setEnsName(e.target.value.toLowerCase())}
                   placeholder="Enter ENS name (e.g., ens.eth)"
-                  className="w-full px-6 py-4 text-lg rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:shadow-md"
+                  className="w-full px-6 py-4 text-xl rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:shadow-md"
                   style={{ textTransform: 'lowercase' }}
                   disabled={isSearching}
                 />
@@ -215,12 +220,13 @@ export default function Home() {
                     Ownership history
                   </p>
                 </div>
-                <ENSHistory
-                  ensName={searchResults.name}
-                  owners={searchResults.owners}
-                  currentOwner={searchResults.currentOwner}
-                  expiryDate={searchResults.expiryDate}
-                />
+            <ENSHistory
+              ensName={searchResults.name}
+              owners={searchResults.owners}
+              currentOwner={searchResults.currentOwner}
+              expiryDate={searchResults.expiryDate}
+              burnEvents={searchResults.burnEvents}
+            />
               </>
             ) : (
               <div className="text-center text-gray-500">

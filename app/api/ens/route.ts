@@ -277,6 +277,13 @@ export async function GET(request: NextRequest) {
       isMarketplace?: boolean;
       marketplaceName?: string;
     }> = [];
+    
+    // Track burn events separately
+    let burnEvents: Array<{
+      date: Date;
+      transactionHash: string;
+      blockNumber: bigint;
+    }> = [];
 
     // Get accurate block timestamps from blockchain
     const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
@@ -375,15 +382,32 @@ export async function GET(request: NextRequest) {
         }
         // If this is the last transfer, endDate stays undefined (will be set to expiry date if current owner)
 
-        owners.push({
-          address: transfer.owner.id,
-          startDate: timestamp,
-          endDate,
-          transactionHash: transfer.transactionID,
-          blockNumber: BigInt(transfer.blockNumber),
-          isMarketplace: isMarketplace || undefined,
-          marketplaceName: marketplaceName || undefined,
-        });
+        // Check if this is a burn/revoke (transfer to zero address)
+        const isBurned = transfer.owner.id.toLowerCase() === "0x0000000000000000000000000000000000000000";
+
+        // Don't create an ownership period for burns - they're just events
+        // Track burn events separately and mark previous owner's end date
+        if (!isBurned) {
+          owners.push({
+            address: transfer.owner.id,
+            startDate: timestamp,
+            endDate,
+            transactionHash: transfer.transactionID,
+            blockNumber: BigInt(transfer.blockNumber),
+            isMarketplace: isMarketplace || undefined,
+            marketplaceName: marketplaceName || undefined,
+          });
+        } else {
+          // This is a burn - track it as an event and mark previous owner's end date
+          burnEvents.push({
+            date: timestamp,
+            transactionHash: transfer.transactionID,
+            blockNumber: BigInt(transfer.blockNumber),
+          });
+          if (owners.length > 0) {
+            owners[owners.length - 1].endDate = timestamp;
+          }
+        }
       }
     } else {
       // Fallback: use registration date and estimate based on block numbers
@@ -438,20 +462,43 @@ export async function GET(request: NextRequest) {
           endDate = new Date(estimatedDate.getTime() + Number(blocksDiff) * 12 * 1000);
         }
 
-        owners.push({
-          address: transfer.owner.id,
-          startDate: estimatedDate,
-          endDate,
-          transactionHash: transfer.transactionID,
-          blockNumber: BigInt(transfer.blockNumber),
-        });
+        // Check if this is a burn/revoke (transfer to zero address)
+        const isBurned = transfer.owner.id.toLowerCase() === "0x0000000000000000000000000000000000000000";
+
+        // Don't create an ownership period for burns - they're just events
+        // Track burn events separately and mark previous owner's end date
+        if (!isBurned) {
+          owners.push({
+            address: transfer.owner.id,
+            startDate: estimatedDate,
+            endDate,
+            transactionHash: transfer.transactionID,
+            blockNumber: BigInt(transfer.blockNumber),
+          });
+        } else {
+          // This is a burn - track it as an event and mark previous owner's end date
+          burnEvents.push({
+            date: estimatedDate,
+            transactionHash: transfer.transactionID,
+            blockNumber: BigInt(transfer.blockNumber),
+          });
+          if (owners.length > 0) {
+            owners[owners.length - 1].endDate = estimatedDate;
+          }
+        }
       }
     }
 
-    // If we have registration info, use it to set the accurate registration date
-    // and consolidate with first transfer if they're the same owner on the same day
+    // If we have registration info, always add it as the first entry
+    // Registration must come before any transfers (including burns)
     if (data.registrations && data.registrations.length > 0) {
-      const registration = data.registrations[0];
+      // Sort registrations to get the earliest (first) registration
+      const sortedRegistrations = [...data.registrations].sort((a, b) => {
+        const dateA = parseInt(a.registrationDate);
+        const dateB = parseInt(b.registrationDate);
+        return dateA - dateB; // Ascending order - get earliest registration
+      });
+      const registration = sortedRegistrations[0];
       // Parse registration date - The Graph returns Unix timestamp in seconds
       const regTimestamp = parseInt(registration.registrationDate);
       if (!isNaN(regTimestamp) && regTimestamp > 0) {
@@ -460,31 +507,34 @@ export async function GET(request: NextRequest) {
         // Validate date is reasonable (after 2015 when Ethereum/ENS launched)
         if (regDate.getFullYear() >= 2015 && regDate.getFullYear() <= new Date().getFullYear() + 1) {
           const registrantAddress = registration.registrant.id.toLowerCase();
+          const registrantIsCurrentOwner = registrantAddress === domain.owner.id.toLowerCase();
 
-          // Check if first owner is the registrant and on the same day
           if (owners.length > 0) {
             const firstOwner = owners[0];
             const firstOwnerDate = firstOwner.startDate instanceof Date
               ? firstOwner.startDate
               : new Date(firstOwner.startDate);
 
-            // If first transfer is by the registrant on the same day, use registration date instead
-            // (registration date is more accurate than block timestamp)
+            // Check if first transfer is by the registrant on the same day
             const sameDay =
               firstOwnerDate.getFullYear() === regDate.getFullYear() &&
               firstOwnerDate.getMonth() === regDate.getMonth() &&
               firstOwnerDate.getDate() === regDate.getDate();
 
             if (firstOwner.address.toLowerCase() === registrantAddress && sameDay) {
-              // Replace first transfer date with accurate registration date
+              // First transfer is by the registrant on the same day - use registration date instead
+              // (registration date is more accurate than block timestamp)
               owners[0].startDate = regDate;
-            } else if (firstOwnerDate > regDate) {
-              // First transfer is after registration, add registration entry
-              const registrantIsCurrentOwner = registrantAddress === domain.owner.id.toLowerCase();
+            } else {
+              // Always add registration entry before first transfer
+              // Registration must happen before any transfers (including burns)
+              // Use the earlier of registration date or first transfer date as start
+              const registrationStartDate = regDate < firstOwnerDate ? regDate : firstOwnerDate;
+              
               if (!registrantIsCurrentOwner) {
                 owners.unshift({
                   address: registration.registrant.id,
-                  startDate: regDate,
+                  startDate: registrationStartDate,
                   endDate: firstOwner.startDate,
                   transactionHash: "",
                   blockNumber: BigInt(0),
@@ -493,7 +543,6 @@ export async function GET(request: NextRequest) {
             }
           } else {
             // No transfers, domain still owned by registrant
-            const registrantIsCurrentOwner = registrantAddress === domain.owner.id.toLowerCase();
             if (registrantIsCurrentOwner) {
               // Current owner is the registrant, add as first entry
               owners.unshift({
@@ -641,8 +690,9 @@ export async function GET(request: NextRequest) {
       const expiryTimestamp = parseInt(latestRegistration.expiryDate);
       if (!isNaN(expiryTimestamp) && expiryTimestamp > 0) {
         const expiry = new Date(expiryTimestamp * 1000);
-        // Validate expiry date is reasonable (after 2015 and not too far in the past)
-        if (expiry.getFullYear() >= 2015 && expiry.getTime() > Date.now() - 86400000) { // At least 1 day in the past
+        // Validate expiry date is reasonable (after 2015 when ENS launched)
+        // Include expired domains too - they're still valid expiry dates
+        if (expiry.getFullYear() >= 2015) {
           expiryDate = expiry;
         }
       }
@@ -859,11 +909,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Convert burn events to ISO strings for JSON serialization
+    const burnEventsWithISOStrings = burnEvents.map(burn => ({
+      date: burn.date.toISOString(),
+      transactionHash: burn.transactionHash,
+      blockNumber: burn.blockNumber.toString(),
+    }));
+
     return NextResponse.json({
       name: normalizedName,
       owners: historicalOwners,
       currentOwner: currentOwnerData,
       expiryDate: expiryDate ? expiryDate.toISOString() : undefined, // Include expiry date in response
+      burnEvents: burnEventsWithISOStrings, // Include burn events
     });
   } catch (error: any) {
     console.error("Error fetching ENS history:", error);

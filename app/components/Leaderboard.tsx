@@ -88,7 +88,7 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
       >
         <div className="flex items-center gap-3">
           <Trophy className="text-yellow-500" size={24} />
-          <h2 className="text-2xl font-bold" style={{ color: "#011A25" }}>
+          <h2 className="text-xl font-bold" style={{ color: "#011A25" }}>
             Top 10 Most Transferred ENS Names
           </h2>
         </div>

@@ -12,6 +12,13 @@ export interface ENSOwner {
   isMarketplace?: boolean;
   marketplaceName?: string;
   avatar?: string;
+  isBurned?: boolean;
+}
+
+interface BurnEvent {
+  date: string;
+  transactionHash: string;
+  blockNumber: string;
 }
 
 interface ENSHistoryProps {
@@ -19,6 +26,7 @@ interface ENSHistoryProps {
   owners: ENSOwner[];
   currentOwner?: ENSOwner;
   expiryDate?: string;
+  burnEvents?: BurnEvent[];
 }
 
 interface TimelinePeriod {
@@ -26,12 +34,14 @@ interface TimelinePeriod {
   startDate: Date;
   endDate: Date | null; // null means current/ongoing
   isDormant: boolean;
+  isBurned?: boolean; // true if this is a burn event (no duration)
+  burnTransactionHash?: string; // transaction hash for burn events
   isMarketplace?: boolean;
   marketplaceName?: string;
-  duration: number; // in milliseconds
+  duration: number; // in milliseconds (0 for burn events)
 }
 
-export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }: ENSHistoryProps) {
+export default function ENSHistory({ ensName, owners, currentOwner, expiryDate, burnEvents = [] }: ENSHistoryProps) {
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return "Unknown";
     
@@ -161,13 +171,20 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
         (typeof owner.startDate === "string" ? owner.startDate : owner.startDate.toISOString()) ===
         (typeof currentOwner.startDate === "string" ? currentOwner.startDate : currentOwner.startDate.toISOString());
       
-      if (owner.endDate) {
+      // For current owner, prioritize currentOwner.endDate (which contains expiry date)
+      if (isCurrentOwner) {
+        // Current owner - use expiry date from currentOwner.endDate or fallback to expiryDate prop
+        if (currentOwner.endDate) {
+          endDate = typeof currentOwner.endDate === "string" 
+            ? new Date(currentOwner.endDate) 
+            : currentOwner.endDate;
+        } else if (expiryDate) {
+          // Fallback: use expiryDate prop if currentOwner.endDate is not set
+          endDate = typeof expiryDate === "string" ? new Date(expiryDate) : expiryDate;
+        }
+      } else if (owner.endDate) {
+        // Historical owner - use their endDate
         endDate = typeof owner.endDate === "string" ? new Date(owner.endDate) : owner.endDate;
-      } else if (isCurrentOwner && currentOwner.endDate) {
-        // Current owner with expiry date - use expiry date as endDate for display
-        endDate = typeof currentOwner.endDate === "string" 
-          ? new Date(currentOwner.endDate) 
-          : currentOwner.endDate;
       }
       
       // Calculate duration - for current owner, use elapsed time (now), not expiry date
@@ -192,7 +209,7 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
         duration,
       });
       
-      // Check for dormant period before next owner
+      // Check for burn events and dormant periods before next owner
       if (i < finalOwners.length - 1) {
         const nextOwner = finalOwners[i + 1];
         const nextStartDate = typeof nextOwner.startDate === "string"
@@ -201,26 +218,61 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
         
         const currentEndDate = endDate || now;
         
-        // If there's a gap, add dormant period
+        // If there's a gap, check for burn events and add them, then add dormant period
         if (nextStartDate.getTime() > currentEndDate.getTime()) {
+          // Find burn events that occurred between current end and next start
+          const relevantBurns = burnEvents.filter(burn => {
+            const burnDate = typeof burn.date === "string" ? new Date(burn.date) : burn.date;
+            return burnDate >= currentEndDate && burnDate <= nextStartDate;
+          });
+          
+          // Add burn event(s) - typically there's one burn per gap
+          for (const burn of relevantBurns) {
+            const burnDate = typeof burn.date === "string" ? new Date(burn.date) : burn.date;
+            periods.push({
+              owner: {
+                address: "0x0000000000000000000000000000000000000000",
+                startDate: burnDate,
+                endDate: burnDate,
+                transactionHash: burn.transactionHash,
+              },
+              startDate: burnDate,
+              endDate: burnDate,
+              isDormant: false,
+              isBurned: true,
+              burnTransactionHash: burn.transactionHash,
+              duration: 0, // Burn events have no duration
+            });
+          }
+          
+          // Add dormant period after burn (or gap if no burn)
+          const dormantStart = relevantBurns.length > 0 
+            ? (typeof relevantBurns[relevantBurns.length - 1].date === "string" 
+                ? new Date(relevantBurns[relevantBurns.length - 1].date) 
+                : relevantBurns[relevantBurns.length - 1].date)
+            : currentEndDate;
+          
           periods.push({
             owner: {
               address: "0x0000000000000000000000000000000000000000",
-              startDate: currentEndDate,
+              startDate: dormantStart,
               endDate: nextStartDate,
               transactionHash: "",
             },
-            startDate: currentEndDate,
+            startDate: dormantStart,
             endDate: nextStartDate,
             isDormant: true,
-            duration: nextStartDate.getTime() - currentEndDate.getTime(),
+            duration: nextStartDate.getTime() - dormantStart.getTime(),
           });
         }
       }
     }
     
+    // Sort periods by start date to ensure correct order
+    periods.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    
     return periods;
-  }, [owners, currentOwner]);
+  }, [owners, currentOwner, burnEvents]);
 
   // Calculate total timeline span (from first registration to current date)
   const timelineSpan = useMemo(() => {
@@ -380,14 +432,23 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
             )}
             {bornOnDate && (
               <div className="flex items-center gap-2 text-xs md:text-sm relative" style={{ color: '#011A25', opacity: 0.8, zIndex: 3 }}>
-                <span className="font-medium">Born on: </span>
+                <span className="font-medium">Birth: </span>
                 <span className="font-semibold break-words" style={{ color: '#011A25' }}>{formatDate(bornOnDate)}</span>
               </div>
             )}
             {expiryDate && (
               <div className="flex items-center gap-2 text-xs md:text-sm relative" style={{ color: '#011A25', opacity: 0.8, zIndex: 3 }}>
-                <span className="font-medium">Tentative Expiry: </span>
-                <span className="font-semibold break-words" style={{ color: '#011A25' }}>{formatDate(expiryDate)}</span>
+                {(() => {
+                  const expiry = typeof expiryDate === "string" ? new Date(expiryDate) : expiryDate;
+                  const now = new Date();
+                  const isExpired = expiry <= now;
+                  return (
+                    <>
+                      <span className="font-medium">{isExpired ? "Expired on: " : "Tentative Expiry: "}</span>
+                      <span className="font-semibold break-words" style={{ color: isExpired ? '#DC2626' : '#011A25' }}>{formatDate(expiryDate)}</span>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -433,11 +494,16 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
             <div className="space-y-4 md:space-y-6 relative">
               {[...timeline].reverse().map((period, originalIndex) => {
                 const index = timeline.length - 1 - originalIndex;
+                const now = new Date(); // Current date/time for this render
                 const isMarketplace = period.isMarketplace || false;
                 // Current owner is the first item in reversed timeline (most recent)
+                // Check if domain is expired - if expiry date exists and has passed, it's not current
+                const expiry = expiryDate ? (typeof expiryDate === "string" ? new Date(expiryDate) : expiryDate) : null;
+                const isExpired = expiry && expiry <= now;
                 const isCurrent = currentOwner && 
                   period.owner.address.toLowerCase() === currentOwner.address.toLowerCase() &&
-                  (originalIndex === 0 || !period.endDate || (period.endDate && period.endDate > new Date()));
+                  !isExpired &&
+                  (originalIndex === 0 || !period.endDate || (period.endDate && period.endDate > now));
                 
                 // Determine color class
                 let colorClass: string;
@@ -448,6 +514,55 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
                 } else {
                   const gradient = getOwnerColor(period.owner.address, index);
                   colorClass = gradient.replace('from-', 'bg-').split(' ')[0];
+                }
+                
+                // Render burn event (no duration, just event marker)
+                if (period.isBurned) {
+                  return (
+                    <div key={`burned-${index}`} className="relative flex items-start gap-6">
+                      {/* Timeline dot with year label above */}
+                      <div className="relative z-10 flex-shrink-0 flex flex-col items-center">
+                        {/* Year label above the dot */}
+                        <div className="text-xl md:text-2xl font-bold mb-2" style={{ color: '#DC2626' }}>
+                          {period.startDate.getFullYear()}
+                        </div>
+                        <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-lg"></div>
+                      </div>
+                      
+                      {/* Content card */}
+                      <div className="flex-1 bg-red-50 rounded-lg p-4 border-2 border-red-300">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Circle className="text-red-500" size={16} />
+                            <h4 className="font-semibold" style={{ color: '#011A25' }}>
+                              Burned / Revoked
+                            </h4>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full shadow-sm">
+                              Burned
+                            </span>
+                            {period.burnTransactionHash && (
+                              <a
+                                href={`https://etherscan.io/tx/${period.burnTransactionHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <ExternalLink size={16} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-sm" style={{ color: '#011A25', opacity: 0.8 }}>
+                          <div className="flex items-center gap-2">
+                            <Clock size={14} />
+                            <span><span className="font-medium">Date: </span>{formatDateFull(period.startDate)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
                 }
                 
                 if (period.isDormant) {
@@ -480,7 +595,7 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
                             <span><span className="font-medium">To: </span>{formatDateFull(period.endDate!)}</span>
                           </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">Owned for: </span>
+                              <span className="font-medium">Dormant for: </span>
                               {formatDuration(period.duration)}
                             </div>
                         </div>
@@ -553,8 +668,15 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
                                 <div>
                                   <span className="font-medium">To: </span>
                                   <span className="font-mono">{formatDateFull(period.endDate)}</span>
+                                  {/* Show status label for current owner */}
                                   {isCurrent && (
-                                    <span className="text-xs text-emerald-600 ml-2">(Expires)</span>
+                                    <>
+                                      {period.endDate > now ? (
+                                        <span className="text-xs text-emerald-600 ml-2">(Expires)</span>
+                                      ) : (
+                                        <span className="text-xs text-red-600 ml-2">(Expired)</span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -563,7 +685,27 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate }
                                 <Clock size={16} className="text-gray-400 flex-shrink-0" />
                                 <div>
                                   <span className="font-medium">To: </span>
-                                  <span className="text-emerald-600 font-semibold">Ongoing</span>
+                                  {/* Fallback: check expiryDate prop if period.endDate is not set */}
+                                  {expiryDate ? (
+                                    <>
+                                      {(() => {
+                                        const expiry = typeof expiryDate === "string" ? new Date(expiryDate) : expiryDate;
+                                        if (expiry <= now) {
+                                          // Domain has expired - show expiry date
+                                          return (
+                                            <>
+                                              <span className="font-mono">{formatDateFull(expiry)}</span>
+                                              <span className="text-xs text-red-600 ml-2">(Expired)</span>
+                                            </>
+                                          );
+                                        }
+                                        // Domain hasn't expired yet - show Ongoing
+                                        return <span className="text-emerald-600 font-semibold">Ongoing</span>;
+                                      })()}
+                                    </>
+                                  ) : (
+                                    <span className="text-emerald-600 font-semibold">Ongoing</span>
+                                  )}
                                 </div>
                               </div>
                             )}

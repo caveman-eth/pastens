@@ -52,6 +52,44 @@ interface DomainTransferCount {
   transferCount: number;
 }
 
+// Validate ENS domain name
+const isValidENSName = (name: string): boolean => {
+  if (!name || typeof name !== 'string') return false;
+  
+  const normalized = name.toLowerCase().trim();
+  
+  // Must end with .eth
+  if (!normalized.endsWith('.eth')) return false;
+  
+  // Remove .eth suffix to check the label
+  const label = normalized.slice(0, -4);
+  
+  // Must not be empty
+  if (label.length === 0) return false;
+  
+  // Must not start or end with hyphen or dot
+  if (label.startsWith('-') || label.startsWith('.') || 
+      label.endsWith('-') || label.endsWith('.')) return false;
+  
+  // Must not contain consecutive dots or hyphens
+  if (label.includes('..') || label.includes('--')) return false;
+  
+  // Must only contain alphanumeric characters, hyphens, and dots
+  if (!/^[a-z0-9.-]+$/.test(label)) return false;
+  
+  // Each label part (split by dot) should be valid
+  const parts = label.split('.');
+  for (const part of parts) {
+    if (part.length === 0) return false;
+    // Labels cannot start or end with hyphen
+    if (part.startsWith('-') || part.endsWith('-')) return false;
+    // Labels can contain alphanumeric and hyphens
+    if (!/^[a-z0-9-]+$/.test(part)) return false;
+  }
+  
+  return true;
+};
+
 // In-memory cache for leaderboard data
 // Cache expires after 30 minutes (1800000 ms)
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
@@ -152,14 +190,17 @@ export async function GET() {
     // Similar to how the main API processes transfers - count unique owner transitions
     const domainTransfers = new Map<string, Transfer[]>();
 
-    // First, group transfers by domain
+    // First, group transfers by domain (filter out invalid domain names)
     for (const transfer of allTransfers) {
       if (transfer.domain && transfer.domain.name) {
         const domainName = transfer.domain.name.toLowerCase();
-        if (!domainTransfers.has(domainName)) {
-          domainTransfers.set(domainName, []);
+        // Only process valid ENS domain names
+        if (isValidENSName(domainName)) {
+          if (!domainTransfers.has(domainName)) {
+            domainTransfers.set(domainName, []);
+          }
+          domainTransfers.get(domainName)!.push(transfer);
         }
-        domainTransfers.get(domainName)!.push(transfer);
       }
     }
 

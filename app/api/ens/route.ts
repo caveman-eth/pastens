@@ -658,6 +658,29 @@ export async function GET(request: NextRequest) {
     };
     let historicalOwners = ownersWithISOStrings;
 
+    // Get the most recent registration date if available (for newly purchased domains)
+    // Only use it if the registrant matches the current owner (to handle new purchases)
+    let mostRecentRegistrationDate: Date | null = null;
+    if (data.registrations && data.registrations.length > 0) {
+      // Sort registrations by date descending to get the most recent
+      const sortedRegistrations = [...data.registrations].sort((a, b) => {
+        const dateA = parseInt(a.registrationDate);
+        const dateB = parseInt(b.registrationDate);
+        return dateB - dateA; // Descending order
+      });
+      const latestReg = sortedRegistrations[0];
+      const regTimestamp = parseInt(latestReg.registrationDate);
+      if (!isNaN(regTimestamp) && regTimestamp > 0) {
+        const regDate = new Date(regTimestamp * 1000);
+        // Only use registration date if it's valid and the registrant matches current owner
+        // This ensures we're using the correct registration for newly purchased domains
+        const registrantMatchesCurrent = latestReg.registrant.id.toLowerCase() === domain.owner.id.toLowerCase();
+        if (regDate.getFullYear() >= 2015 && regDate.getFullYear() <= new Date().getFullYear() + 1 && registrantMatchesCurrent) {
+          mostRecentRegistrationDate = regDate;
+        }
+      }
+    }
+
     if (ownersWithISOStrings.length > 0) {
       // Current owner is the domain owner from the contract
       const lastOwner = ownersWithISOStrings[ownersWithISOStrings.length - 1];
@@ -668,9 +691,22 @@ export async function GET(request: NextRequest) {
       if (lastOwnerMatchesCurrent) {
         // Last owner IS the current owner - use it and exclude from history
         // Use expiry date as the end date for current owner if available
+        
+        // Determine start date: use most recent registration date if it's more recent than last transfer
+        // This handles cases where The Graph hasn't indexed the new purchase yet
+        let startDate = lastOwner.startDate;
+        if (mostRecentRegistrationDate) {
+          const lastOwnerDate = new Date(lastOwner.startDate);
+          // If registration date is more recent than the last transfer, use registration date
+          // This handles newly purchased domains that haven't been indexed yet
+          if (mostRecentRegistrationDate > lastOwnerDate) {
+            startDate = mostRecentRegistrationDate.toISOString();
+          }
+        }
+        
         currentOwnerData = {
           address: domain.owner.id,
-          startDate: lastOwner.startDate,
+          startDate: startDate,
           endDate: expiryDate ? expiryDate.toISOString() : undefined, // Use expiry date instead of undefined
           transactionHash: lastOwner.transactionHash || "",
         };
@@ -718,9 +754,20 @@ export async function GET(request: NextRequest) {
         // Use the domain owner as current, and keep all transfers as historical
         // Find when current owner took over (should be after last transfer)
         const lastTransferDate = lastOwner.endDate || lastOwner.startDate;
+        
+        // Use most recent registration date if it's more recent than last transfer
+        // This handles newly purchased domains that haven't been indexed yet
+        let startDate = lastTransferDate;
+        if (mostRecentRegistrationDate) {
+          const lastTransferDateObj = new Date(lastTransferDate);
+          if (mostRecentRegistrationDate > lastTransferDateObj) {
+            startDate = mostRecentRegistrationDate.toISOString();
+          }
+        }
+        
         currentOwnerData = {
           address: domain.owner.id,
-          startDate: lastTransferDate, // Use last transfer's end date as when current owner took over
+          startDate: startDate,
           endDate: expiryDate ? expiryDate.toISOString() : undefined,
           transactionHash: "",
         };

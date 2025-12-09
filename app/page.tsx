@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search, Volume2 } from "lucide-react";
 import ENSHistory, { ENSOwner } from "./components/ENSHistory";
+import ENSHistorySkeleton from "./components/ENSHistorySkeleton";
 
 export default function Home() {
   const [ensName, setEnsName] = useState("");
@@ -170,6 +171,15 @@ export default function Home() {
                 <p className="text-lg font-semibold">Error</p>
                 <p className="text-sm mt-2">{error}</p>
               </div>
+            ) : isSearching ? (
+              <>
+                {/* ENS Name Label Skeleton */}
+                <div className="mb-8 text-left animate-pulse">
+                  <div className="h-10 w-48 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 w-32 bg-gray-200 rounded"></div>
+                </div>
+                <ENSHistorySkeleton />
+              </>
             ) : searchResults ? (
               <>
                 {/* ENS Name Label */}

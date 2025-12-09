@@ -6,9 +6,28 @@ import { mainnet } from "viem/chains";
 
 // Known marketplace contract addresses (common ENS marketplaces)
 const MARKETPLACE_CONTRACTS: Record<string, string> = {
-  // Add known marketplace addresses here
-  // Format: "0x...": "Marketplace Name"
-  // You can find these by checking common marketplace contracts
+  // OpenSea - Seaport Protocol (primary protocol since 2022)
+  "0x00000000006c3852cbef3e08e8df289169ede581": "OpenSea Seaport",
+  "0x00000000006cee72100d161c57ada5bb2be1ca79": "OpenSea Seaport V1",
+  "0x00000000006c7676171937c444f6bde3d6282": "OpenSea Seaport V3",
+  "0x0000000000000ad24e80fd803c6ac37206a45f15": "OpenSea Seaport V4",
+  "0x00000000000001ad428e4906ae43d8f9852d0dd6": "OpenSea Seaport V5",
+  "0x00000000000000adc04c56bf30ac9d3c0aaf14dc": "OpenSea Seaport V6",
+  
+  // OpenSea - Wyvern Protocol (legacy)
+  "0x7be8076f4ea4a4ad08075c2508e481d6c946d12b": "OpenSea Wyvern",
+  "0x7f268357a8c2552623316e2562d90e642bb538e5": "OpenSea Wyvern V2",
+  
+  // OpenSea - Shared Storefront
+  "0x495f947276749ce646f68ac8c248420045cb7b5e": "OpenSea Shared Storefront",
+  
+  // Note: Vision.io and Grails.app contract addresses are not publicly documented.
+  // Grails.app (https://grails.app) likely uses OpenSea's Seaport protocol, so transactions
+  // may already be detected through the OpenSea contracts above.
+  // The heuristic detection (rapid intermediate transfers) will also catch marketplace
+  // escrow patterns from these platforms if they use escrow contracts.
+  // If you obtain specific contract addresses, add them here in the format:
+  // "0x...": "Vision.io" or "0x...": "Grails.app"
 };
 
 // Helper to detect if an address might be a marketplace contract
@@ -273,6 +292,15 @@ export async function GET(request: NextRequest) {
       );
       const blocks = await Promise.all(blockPromises);
 
+      // Helper function to estimate timestamp from block number if block fetch fails
+      const estimateTimestampFromBlock = (blockNumber: string): Date => {
+        // Ethereum mainnet genesis was July 30, 2015, block 0
+        const genesisDate = new Date('2015-07-30T00:00:00Z');
+        // Average block time is ~12 seconds
+        const blockNum = BigInt(blockNumber);
+        return new Date(genesisDate.getTime() + Number(blockNum) * 12 * 1000);
+      };
+
       // Process transfers with accurate timestamps
       // Handle marketplace/auction scenarios where ownership might transfer through escrow contracts
       for (let i = 0; i < data.transfers.length; i++) {
@@ -281,7 +309,7 @@ export async function GET(request: NextRequest) {
 
         const timestamp = block
           ? new Date(Number(block.timestamp) * 1000)
-          : new Date(); // Fallback if block fetch fails
+          : estimateTimestampFromBlock(transfer.blockNumber); // Estimate from block number if fetch fails
 
         // Skip duplicate transfers: same owner in same block (duplicate events)
         if (i > 0) {
@@ -340,6 +368,9 @@ export async function GET(request: NextRequest) {
           // Even if same block, this represents when ownership changed
           if (nextBlock) {
             endDate = new Date(Number(nextBlock.timestamp) * 1000);
+          } else {
+            // Estimate from block number if block fetch failed
+            endDate = estimateTimestampFromBlock(nextTransfer.blockNumber);
           }
         }
         // If this is the last transfer, endDate stays undefined (will be set to expiry date if current owner)
@@ -542,14 +573,37 @@ export async function GET(request: NextRequest) {
     // Also filter out entries with zero or negative duration (same start/end date)
     const ownersWithISOStrings = owners
       .map((owner) => {
-        const startDate = owner.startDate instanceof Date
-          ? owner.startDate
-          : (typeof owner.startDate === "string" ? new Date(owner.startDate) : new Date());
-        const endDate = owner.endDate
-          ? (owner.endDate instanceof Date
-            ? owner.endDate
-            : (typeof owner.endDate === "string" ? new Date(owner.endDate) : undefined))
-          : undefined;
+        let startDate: Date;
+        if (owner.startDate instanceof Date) {
+          startDate = owner.startDate;
+        } else if (typeof owner.startDate === "string") {
+          const parsed = new Date(owner.startDate);
+          // Validate parsed date - if invalid, skip this entry
+          if (isNaN(parsed.getTime())) {
+            return null;
+          }
+          startDate = parsed;
+        } else {
+          // Invalid date format - skip this entry
+          return null;
+        }
+        
+        let endDate: Date | undefined;
+        if (owner.endDate) {
+          if (owner.endDate instanceof Date) {
+            endDate = owner.endDate;
+          } else if (typeof owner.endDate === "string") {
+            const parsed = new Date(owner.endDate);
+            // Validate parsed date - if invalid, skip this entry
+            if (isNaN(parsed.getTime())) {
+              return null;
+            }
+            endDate = parsed;
+          } else {
+            // Invalid date format - skip this entry
+            return null;
+          }
+        }
         
         // Filter out entries with zero or negative duration (unless it's the current owner)
         if (endDate) {

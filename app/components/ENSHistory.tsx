@@ -306,7 +306,7 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
     <div className="space-y-6 md:space-y-10">
       {/* Current Owner - Fused with ENS name */}
       {currentOwner && (
-        <div className="pb-6 md:pb-8 border-b border-gray-200 relative overflow-hidden" style={{ zIndex: 1 }}>
+        <div className="pb-6 md:pb-8 border-b border-gray-200 relative" style={{ zIndex: 1 }}>
           {/* Large lifespan display - behind content on mobile */}
           {approximateAge !== null && (
             <div className="absolute right-0 top-1/2" style={{ 
@@ -327,7 +327,7 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
             </div>
           )}
           
-          <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+          <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4 relative" style={{ zIndex: 2 }}>
             {currentOwner.avatar ? (
               <img 
                 src={currentOwner.avatar} 
@@ -352,7 +352,7 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
               Current Owner
             </h3>
           </div>
-          <div className="space-y-2 md:space-y-3">
+          <div className="space-y-2 md:space-y-3 relative" style={{ zIndex: 2 }}>
             <div>
               <span className="text-xs md:text-sm font-medium" style={{ color: '#011A25', opacity: 0.8 }}>Address: </span>
               <span className="font-mono text-sm md:text-base font-semibold break-all" style={{ color: '#011A25' }}>
@@ -364,7 +364,7 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
               <span className="font-medium break-words">Owned since {formatDateFull(currentOwner.startDate)}</span>
             </div>
             {ensLifespan !== null && (
-              <div className="flex items-center gap-2 text-xs md:text-sm" style={{ color: '#011A25', opacity: 0.8 }}>
+              <div className="flex items-center gap-2 text-xs md:text-sm relative" style={{ color: '#011A25', opacity: 0.8, zIndex: 3 }}>
                 <span className="font-medium">Lifespan: </span>
                 <span className="font-semibold break-words" style={{ color: '#011A25' }}>{formatDuration(ensLifespan)}</span>
               </div>
@@ -388,7 +388,11 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
           {/* Vertical Timeline */}
           <div className="relative">
             {/* Vertical line connecting the markers in the center */}
-            <div className="absolute left-1/2 top-0 transform -translate-x-1/2 w-0.5 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-200" style={{ height: timeline.length > 0 ? `${(timeline.length - 1) * 6 * 1.5 + 2}rem` : '0', marginTop: '3rem' }}></div>
+            {/* Height calculation: Very generous to ensure it reaches all cards
+                - Using 12rem per gap to account for year labels, spacing, and card heights
+                - Plus 6rem extra padding at the bottom to ensure it extends well past the last dot
+            */}
+            <div className="absolute left-1/2 top-0 transform -translate-x-1/2 w-0.5 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-200" style={{ height: timeline.length > 0 ? `${(timeline.length - 1) * 12 + 6}rem` : '0', marginTop: '3rem' }}></div>
             
             <div className="space-y-4 md:space-y-6 relative">
               {[...timeline].reverse().map((period, originalIndex) => {
@@ -459,8 +463,10 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
                       </div>
                       <div className="relative">
                         <div className={`w-5 h-5 rounded-full border-2 border-white shadow-lg ${isCurrent ? 'ring-2 ring-emerald-300 animate-pulse' : ''}`} style={{ backgroundColor: isCurrent ? '#0080BC' : '#9CA3AF' }}></div>
-                        {originalIndex > 0 && (
-                          <div className="absolute top-[1.25rem] left-1/2 transform -translate-x-1/2 w-0.5 h-8 bg-gray-200"></div>
+                        {/* Show connecting line for all items except the top-most (most recent) one */}
+                        {/* Line connects upward from bottom of dot to the next card above */}
+                        {originalIndex !== 0 && (
+                          <div className="absolute top-[1.25rem] left-1/2 transform -translate-x-1/2 w-0.5 bg-gray-200" style={{ height: '2.5rem', zIndex: 1 }}></div>
                         )}
                       </div>
                     </div>
@@ -562,10 +568,25 @@ export default function ENSHistory({ ensName, owners, currentOwner }: ENSHistory
         </div>
       )}
 
-      {/* Fallback if no timeline */}
+      {/* Empty state - no timeline */}
       {timeline.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <p>No ownership history found</p>
+        <div className="text-center py-12 md:py-16">
+          <div className="max-w-md mx-auto">
+            <div className="mb-6 flex justify-center">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gray-100 flex items-center justify-center">
+                <User className="text-gray-400" size={40} />
+              </div>
+            </div>
+            <h3 className="text-xl md:text-2xl font-bold mb-3" style={{ color: '#011A25' }}>
+              No Ownership History Found
+            </h3>
+            <p className="text-sm md:text-base mb-2" style={{ color: '#011A25', opacity: 0.7 }}>
+              This ENS domain doesn't have any recorded ownership transfers yet.
+            </p>
+            <p className="text-xs md:text-sm" style={{ color: '#011A25', opacity: 0.6 }}>
+              The domain may have been recently registered or hasn't changed hands.
+            </p>
+          </div>
         </div>
       )}
     </div>

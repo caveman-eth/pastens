@@ -518,7 +518,7 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate, 
                 // Render burn event (no duration, just event marker)
                 if (period.isBurned) {
                   return (
-                    <div key={`burned-${index}`} className="relative flex items-start gap-6">
+                    <div key={`burned-${index}`} className="relative flex items-start gap-3 md:gap-6">
                       {/* Timeline dot with year label above */}
                       <div className="relative z-10 flex-shrink-0 flex flex-col items-center">
                         {/* Year label above the dot */}
@@ -529,11 +529,11 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate, 
                       </div>
                       
                       {/* Content card */}
-                      <div className="flex-1 bg-red-50 rounded-lg p-4 border-2 border-red-300">
-                        <div className="flex items-center justify-between mb-2">
+                      <div className="flex-1 bg-red-50 rounded-lg p-4 md:p-5 border-2 border-red-300">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
                             <Circle className="text-red-500" size={16} />
-                            <h4 className="font-semibold" style={{ color: '#011A25' }}>
+                            <h4 className="font-semibold text-sm md:text-base" style={{ color: '#011A25' }}>
                               Burned / Revoked
                             </h4>
                           </div>
@@ -553,7 +553,7 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate, 
                             )}
                           </div>
                         </div>
-                        <div className="text-sm" style={{ color: '#011A25', opacity: 0.8 }}>
+                        <div className="text-xs md:text-sm" style={{ color: '#011A25', opacity: 0.8 }}>
                           <div className="flex items-center gap-2">
                             <Clock size={14} />
                             <span><span className="font-medium">Date: </span>{formatDateFull(period.startDate)}</span>
@@ -566,7 +566,7 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate, 
                 
                 if (period.isDormant) {
                   return (
-                    <div key={`dormant-${index}`} className="relative flex items-start gap-6">
+                    <div key={`dormant-${index}`} className="relative flex items-start gap-3 md:gap-6">
                       {/* Timeline dot with year label above */}
                       <div className="relative z-10 flex-shrink-0 flex flex-col items-center">
                       {/* Year label above the dot */}
@@ -577,14 +577,14 @@ export default function ENSHistory({ ensName, owners, currentOwner, expiryDate, 
                       </div>
                       
                       {/* Content card */}
-                      <div className="flex-1 bg-gray-50 rounded-lg p-4 border-2 border-dashed" style={{ borderColor: '#0080BC' }}>
+                      <div className="flex-1 bg-gray-50 rounded-lg p-4 md:p-5 border-2 border-dashed" style={{ borderColor: '#0080BC' }}>
                         <div className="flex items-center gap-2 mb-2">
                           <Circle className="text-gray-400" size={16} />
-                          <h4 className="font-semibold" style={{ color: '#011A25', opacity: 0.8 }}>
+                          <h4 className="font-semibold text-sm md:text-base" style={{ color: '#011A25', opacity: 0.8 }}>
                             Dormant Period
                           </h4>
                         </div>
-                        <div className="text-sm space-y-1" style={{ color: '#011A25', opacity: 0.8 }}>
+                        <div className="text-xs md:text-sm space-y-1" style={{ color: '#011A25', opacity: 0.8 }}>
                           <div className="flex items-center gap-2">
                             <Clock size={14} />
                             <span><span className="font-medium">From: </span>{formatDateFull(period.startDate)}</span>

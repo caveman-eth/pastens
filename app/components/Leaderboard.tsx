@@ -127,10 +127,10 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
             </div>
           ) : (
             <>
-              <p className="text-sm mb-6" style={{ color: "#011A25", opacity: 0.7 }}>
+              <p className="text-xs md:text-sm mb-4 md:mb-6" style={{ color: "#011A25", opacity: 0.7 }}>
                 Domains ranked by number of ownership transitions
               </p>
-              <p className="text-xs mb-6" style={{ color: "#011A25", opacity: 0.6 }}>
+              <p className="text-xs mb-4 md:mb-6" style={{ color: "#011A25", opacity: 0.6 }}>
                 Rankings are based on a sample of recent transfers and may not reflect complete history
               </p>
 
@@ -149,24 +149,24 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
                       className="w-full text-left block group"
                     >
                       <div
-                        className={`flex items-center gap-4 p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${getRankColor(
+                        className={`flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${getRankColor(
                           rank
                         )}`}
                       >
                         {/* Rank */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg border-2 bg-white">
+                        <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-base md:text-lg border-2 bg-white">
                           {rankIcon || rank}
                         </div>
 
                         {/* Domain Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-lg font-mono" style={{ color: "#011A25" }}>
+                            <h3 className="font-bold text-base md:text-lg font-mono break-all" style={{ color: "#011A25" }}>
                               {entry.name}
                             </h3>
                           </div>
-                          <div className="flex items-center gap-2 text-sm" style={{ color: "#011A25", opacity: 0.7 }}>
-                            <TrendingUp size={14} />
+                          <div className="flex items-center gap-2 text-xs md:text-sm" style={{ color: "#011A25", opacity: 0.7 }}>
+                            <TrendingUp size={12} className="md:w-[14px] md:h-[14px]" />
                             <span className="font-semibold">
                               {entry.transferCount} ownership transition{entry.transferCount !== 1 ? "s" : ""}
                             </span>

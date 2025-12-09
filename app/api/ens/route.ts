@@ -13,14 +13,14 @@ const MARKETPLACE_CONTRACTS: Record<string, string> = {
   "0x0000000000000ad24e80fd803c6ac37206a45f15": "OpenSea Seaport V4",
   "0x00000000000001ad428e4906ae43d8f9852d0dd6": "OpenSea Seaport V5",
   "0x00000000000000adc04c56bf30ac9d3c0aaf14dc": "OpenSea Seaport V6",
-  
+
   // OpenSea - Wyvern Protocol (legacy)
   "0x7be8076f4ea4a4ad08075c2508e481d6c946d12b": "OpenSea Wyvern",
   "0x7f268357a8c2552623316e2562d90e642bb538e5": "OpenSea Wyvern V2",
-  
+
   // OpenSea - Shared Storefront
   "0x495f947276749ce646f68ac8c248420045cb7b5e": "OpenSea Shared Storefront",
-  
+
   // Note: Vision.io and Grails.app contract addresses are not publicly documented.
   // Grails.app (https://grails.app) likely uses OpenSea's Seaport protocol, so transactions
   // may already be detected through the OpenSea contracts above.
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
     // If no owner, domain doesn't exist
     if (!domain.owner || domain.owner.id === "0x0000000000000000000000000000000000000000") {
       return NextResponse.json(
-        { error: `ENS domain "${normalizedName}" does not exist or has no owner` },
+        { error: `Sorry, we are unsure of this error. "${normalizedName}" may not exist or may have no owner` },
         { status: 404 }
       );
     }
@@ -521,18 +521,18 @@ export async function GET(request: NextRequest) {
     const consolidatedOwners: typeof owners = [];
     for (let i = 0; i < owners.length; i++) {
       const current = owners[i];
-      
+
       if (consolidatedOwners.length === 0) {
         consolidatedOwners.push(current);
         continue;
       }
-      
+
       const lastConsolidated = consolidatedOwners[consolidatedOwners.length - 1];
       const currentStart = current.startDate instanceof Date ? current.startDate : new Date(current.startDate);
-      const lastEnd = lastConsolidated.endDate 
+      const lastEnd = lastConsolidated.endDate
         ? (lastConsolidated.endDate instanceof Date ? lastConsolidated.endDate : new Date(lastConsolidated.endDate))
         : null;
-      
+
       // If same owner, merge them
       if (lastConsolidated.address.toLowerCase() === current.address.toLowerCase()) {
         // Same owner - extend the last period to current's end date
@@ -549,15 +549,15 @@ export async function GET(request: NextRequest) {
         // Keep the earlier start date
         continue;
       }
-      
+
       // Different owner - add as new entry
       consolidatedOwners.push(current);
     }
-    
+
     // Replace owners with consolidated list
     owners.length = 0;
     owners.push(...consolidatedOwners);
-    
+
     // Filter out entries with zero or negative duration (after consolidation)
     owners = owners.filter((owner) => {
       const startDate = owner.startDate instanceof Date ? owner.startDate : new Date(owner.startDate);
@@ -587,7 +587,7 @@ export async function GET(request: NextRequest) {
           // Invalid date format - skip this entry
           return null;
         }
-        
+
         let endDate: Date | undefined;
         if (owner.endDate) {
           if (owner.endDate instanceof Date) {
@@ -604,7 +604,7 @@ export async function GET(request: NextRequest) {
             return null;
           }
         }
-        
+
         // Filter out entries with zero or negative duration (unless it's the current owner)
         if (endDate) {
           const duration = endDate.getTime() - startDate.getTime();
@@ -613,7 +613,7 @@ export async function GET(request: NextRequest) {
             return null;
           }
         }
-        
+
         return {
           ...owner,
           startDate: startDate.toISOString(),
@@ -691,7 +691,7 @@ export async function GET(request: NextRequest) {
       if (lastOwnerMatchesCurrent) {
         // Last owner IS the current owner - use it and exclude from history
         // Use expiry date as the end date for current owner if available
-        
+
         // Determine start date: use most recent registration date if it's more recent than last transfer
         // This handles cases where The Graph hasn't indexed the new purchase yet
         let startDate = lastOwner.startDate;
@@ -703,7 +703,7 @@ export async function GET(request: NextRequest) {
             startDate = mostRecentRegistrationDate.toISOString();
           }
         }
-        
+
         currentOwnerData = {
           address: domain.owner.id,
           startDate: startDate,
@@ -711,7 +711,7 @@ export async function GET(request: NextRequest) {
           transactionHash: lastOwner.transactionHash || "",
         };
         historicalOwners = ownersWithISOStrings.slice(0, -1);
-        
+
 
         // Ensure all historical owners have end dates
         // Historical owners should end when the next owner took over
@@ -754,7 +754,7 @@ export async function GET(request: NextRequest) {
         // Use the domain owner as current, and keep all transfers as historical
         // Find when current owner took over (should be after last transfer)
         const lastTransferDate = lastOwner.endDate || lastOwner.startDate;
-        
+
         // Use most recent registration date if it's more recent than last transfer
         // This handles newly purchased domains that haven't been indexed yet
         let startDate = lastTransferDate;
@@ -764,7 +764,7 @@ export async function GET(request: NextRequest) {
             startDate = mostRecentRegistrationDate.toISOString();
           }
         }
-        
+
         currentOwnerData = {
           address: domain.owner.id,
           startDate: startDate,
@@ -773,7 +773,7 @@ export async function GET(request: NextRequest) {
         };
         // All owners in the list are historical
         historicalOwners = ownersWithISOStrings;
-        
+
 
         // Ensure the last historical owner has an end date (when current owner took over)
         // Use the current owner's start date, not today's date
@@ -846,7 +846,7 @@ export async function GET(request: NextRequest) {
             },
           }
         );
-        
+
         if (ensDataResponse.ok) {
           const ensData = await ensDataResponse.json();
           if (ensData.avatar_small) {

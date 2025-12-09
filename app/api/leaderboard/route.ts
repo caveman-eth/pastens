@@ -52,6 +52,17 @@ interface DomainTransferCount {
   transferCount: number;
 }
 
+// In-memory cache for leaderboard data
+// Cache expires after 30 minutes (1800000 ms)
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let cachedData: {
+  data: {
+    leaderboard: DomainTransferCount[];
+    totalTransfersAnalyzed: number;
+  };
+  timestamp: number;
+} | null = null;
+
 export async function GET() {
   try {
     const subgraphUrl = getSubgraphUrl();
@@ -64,10 +75,21 @@ export async function GET() {
         : {},
     });
 
+    // Check cache first
+    const now = Date.now();
+    if (cachedData && (now - cachedData.timestamp) < CACHE_TTL) {
+      // Return cached data with cache headers
+      return NextResponse.json(cachedData.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600', // 30 min cache, 1 hour stale
+        },
+      });
+    }
+
     // Fetch transfers in batches to get a good sample
     // We'll fetch from both ends (recent and old) to get better coverage
     const batchSize = 1000;
-    const batchesPerDirection = 3; // Fetch 3000 transfers from each direction = 6000 total
+    const batchesPerDirection = 5; // Fetch 5000 transfers from each direction = 10000 total
     const allTransfers: Transfer[] = [];
 
     // Helper function to fetch batches
@@ -188,9 +210,22 @@ export async function GET() {
       .sort((a, b) => b.transferCount - a.transferCount)
       .slice(0, 10); // Top 10
 
-    return NextResponse.json({
+    const responseData = {
       leaderboard: domainTransferCounts,
       totalTransfersAnalyzed: allTransfers.length,
+    };
+
+    // Update cache
+    cachedData = {
+      data: responseData,
+      timestamp: now,
+    };
+
+    // Return response with cache headers
+    return NextResponse.json(responseData, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600', // 30 min cache, 1 hour stale
+      },
     });
   } catch (error: any) {
     console.error("Error fetching leaderboard:", error);

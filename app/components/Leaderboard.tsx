@@ -66,10 +66,10 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
   };
 
   const getRankColor = (rank: number) => {
-    if (rank === 1) return "bg-yellow-100 text-yellow-800 border-yellow-300";
-    if (rank === 2) return "bg-gray-100 text-gray-800 border-gray-300";
-    if (rank === 3) return "bg-orange-100 text-orange-800 border-orange-300";
-    return "bg-blue-50 text-blue-800 border-blue-200";
+    if (rank === 1) return "bg-yellow-100 text-yellow-800 border-yellow-300"; // Gold
+    if (rank === 2) return "bg-gray-100 text-gray-800 border-gray-300"; // Silver
+    if (rank === 3) return "bg-orange-100 text-orange-800 border-orange-300"; // Bronze
+    return "bg-white text-gray-800 border-gray-200"; // White for remaining
   };
 
   const getRankIcon = (rank: number) => {
@@ -89,7 +89,7 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
         <div className="flex items-center gap-3">
           <Trophy className="text-yellow-500" size={24} />
           <h2 className="text-2xl font-bold" style={{ color: "#011A25" }}>
-            Top 10 Most Traded ENS Names
+            Top 10 Most Transferred ENS Names
           </h2>
         </div>
         {isExpanded ? (
@@ -128,7 +128,10 @@ export default function Leaderboard({ onDomainClick }: LeaderboardProps) {
           ) : (
             <>
               <p className="text-sm mb-6" style={{ color: "#011A25", opacity: 0.7 }}>
-                Domains ranked by number of ownership transitions (based on sampled transfers)
+                Domains ranked by number of ownership transitions
+              </p>
+              <p className="text-xs mb-6" style={{ color: "#011A25", opacity: 0.6 }}>
+                Rankings are based on a sample of recent transfers and may not reflect complete history
               </p>
 
               <div className="space-y-3">
